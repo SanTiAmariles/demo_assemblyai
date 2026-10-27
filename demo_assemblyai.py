@@ -1,47 +1,41 @@
 """Demo AssemblyAI: transcribe un audio en español y muestra hablantes y entidades.
 
 Uso:
-    pip install -U assemblyai
-    set ASSEMBLYAI_API_KEY=tu_clave        (Windows)   |   export ASSEMBLYAI_API_KEY=tu_clave  (Mac/Linux)
+    pip install -r requirements.txt
+    $env:ASSEMBLYAI_API_KEY = "tu_clave"   (PowerShell)   |   export ASSEMBLYAI_API_KEY=tu_clave  (Mac/Linux)
     python demo_assemblyai.py audio.mp3
 """
-import os
 import sys
 
-import assemblyai as aai
+from transcriber import TranscriptionError, configure_api_key, transcribe
 
-api_key = os.environ.get("ASSEMBLYAI_API_KEY")
-if not api_key:
-    sys.exit("Falta la variable de entorno ASSEMBLYAI_API_KEY.")
-if len(sys.argv) < 2:
-    sys.exit("Uso: python demo_assemblyai.py <archivo_de_audio>")
 
-aai.settings.api_key = api_key
+def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        sys.exit("Uso: python demo_assemblyai.py <archivo_de_audio>")
 
-config = aai.TranscriptionConfig(
-    speech_models=["universal-3-pro", "universal-2"],  # el primero que soporte el idioma
-    language_code="es",
-    speaker_labels=True,       # quién habló
-    sentiment_analysis=False,  # no está disponible para este idioma
-    entity_detection=True,     # nombres, fechas, lugares...
-)
+    try:
+        configure_api_key()
+        print("Transcribiendo...")
+        result = transcribe(argv[1])
+    except TranscriptionError as e:
+        sys.exit(f"Error: {e}")
 
-print("Transcribiendo...")
-transcript = aai.Transcriber(config=config).transcribe(sys.argv[1])
+    print("\n=== TEXTO COMPLETO ===")
+    print(result["text"])
 
-if transcript.status == aai.TranscriptStatus.error:
-    sys.exit(f"Error: {transcript.error}")
+    print("\n=== POR HABLANTE ===")
+    for u in result["utterances"]:
+        print(f"Hablante {u['speaker']}: {u['text']}")
 
-print("\n=== TEXTO COMPLETO ===")
-print(transcript.text)
+    print("\n=== TONO POR FRASE ===")
+    print("No disponible para transcripciones en español.")
 
-print("\n=== POR HABLANTE ===")
-for u in transcript.utterances or []:
-    print(f"Hablante {u.speaker}: {u.text}")
+    print("\n=== ENTIDADES ===")
+    for e in result["entities"]:
+        print(f"{e['type']}: {e['text']}")
+    return 0
 
-print("\n=== TONO POR FRASE ===")
-print("No disponible para transcripciones en español.")
 
-print("\n=== ENTIDADES ===")
-for e in transcript.entities or []:
-    print(f"{e.entity_type.value}: {e.text}")
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
